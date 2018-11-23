@@ -13,6 +13,6 @@ allprojects{
 然后在module的build.gradle下添加 
 ```
 dependencies{
-    implemation 'com.github.Iamdyh:androidutilslib:1.0.0'
+    implemation 'com.github.Iamdyh:androidutilslib:1.0.2'
 }
 ```

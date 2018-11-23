@@ -1,5 +1,6 @@
 package com.dyhdev.androidutlslib.utils;
 
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
@@ -14,14 +15,16 @@ import android.graphics.Rect;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.media.ThumbnailUtils;
-import android.text.TextUtils;
+import android.net.Uri;
+import android.os.Build;
+import android.provider.MediaStore;
 import android.util.Base64;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.Hashtable;
+
 /**
  * Copyright © FEITIAN Technologies Co., Ltd. All Rights Reserved.
  *
@@ -94,7 +97,7 @@ public class BitmapUtil {
      * @param scaleHeight
      * @return
      */
-    public static Bitmap scaleBitmap(Bitmap bitmap, float scaleWidth, float scaleHeight){
+    private static Bitmap scaleBitmap(Bitmap bitmap, float scaleWidth, float scaleHeight){
         if(bitmap == null)
             return null;
         Matrix matrix = new Matrix();
@@ -102,6 +105,11 @@ public class BitmapUtil {
         return Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
     }
 
+    /**
+     * 创建圆角图片
+     * @param bitmap
+     * @return
+     */
     public static Bitmap toRoundCorner(Bitmap bitmap){
         int height = bitmap.getHeight();
         int width = bitmap.getWidth();
@@ -171,6 +179,99 @@ public class BitmapUtil {
         return false;
     }
 
+    public static boolean saveBitmap(Bitmap bitmap, String path){
+        return saveBitmap(bitmap, new File(path));
+    }
+
+    public static Intent buildImageGetIntent(Uri uri, int outputX, int outputY, boolean returnData){
+        return buildImageGetIntent(uri, 1, 1, outputX, outputY, returnData);
+    }
+
+    public static Intent buildImageGetIntent(Uri uri, int aspectX, int aspectY, int outputX, int outputY, boolean returnData){
+        Intent intent = new Intent();
+        if(Build.VERSION.SDK_INT < 19){
+            intent.setAction(Intent.ACTION_GET_CONTENT);
+        }else{
+            intent.setAction(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+        }
+        intent.setType("image/*");
+        intent.putExtra("output", uri);
+        intent.putExtra("aspectX", aspectX);
+        intent.putExtra("aspectY", aspectY);
+        intent.putExtra("outputX", outputX);
+        intent.putExtra("outputY", outputY);
+        intent.putExtra("scale", true);
+        intent.putExtra("return-data", returnData);
+        intent.putExtra("outputFormat", Bitmap.CompressFormat.PNG.toString());
+        return intent;
+    }
+
+    public static Intent buildImageCropIntent(Uri uriFrom, Uri uriTo, int outputX, int outputY, boolean returnData){
+        return buildImageCropIntent(uriFrom, uriTo, 1, 1, outputX, outputY, returnData);
+    }
+
+    public static Intent buildImageCropIntent(Uri uriFrom, Uri uriTo, int aspectX, int aspectY, int outputX, int outputY, boolean returnData){
+        Intent intent = new Intent("com.android.camera.action.CROP");
+        intent.setDataAndType(uriFrom, "image/*");
+        intent.putExtra("crop", "true");
+        intent.putExtra("output", uriTo);
+        intent.putExtra("aspectX", aspectX);
+        intent.putExtra("aspectY", aspectY);
+        intent.putExtra("outputX", outputX);
+        intent.putExtra("outputY", outputY);
+        intent.putExtra("scale", true);
+        intent.putExtra("return-data", returnData);
+        intent.putExtra("outputFormat", Bitmap.CompressFormat.PNG.toString());
+        return intent;
+    }
+
+    public static Intent buildImageCaptureIntent(Uri uri){
+        Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        intent.putExtra(MediaStore.EXTRA_OUTPUT, uri);
+        return intent;
+    }
+
+    public static int calculateInSampleSize(BitmapFactory.Options options, int width, int height){
+        int h = options.outHeight;
+        int w = options.outWidth;
+        int inSampleSize = 0;
+        if(h > height || w > width){
+            float ratioW = (float) w / width;
+            float ratioH = (float) h / height;
+            inSampleSize = (int) Math.min(ratioW, ratioH);
+        }
+        inSampleSize = Math.max(1, inSampleSize);
+        return inSampleSize;
+    }
+
+    public static Bitmap getSmallBitmap(String filePath, int width, int height){
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inJustDecodeBounds = true;
+        BitmapFactory.decodeFile(filePath, options);
+        options.inSampleSize = calculateInSampleSize(options, width, height);
+        options.inJustDecodeBounds = false;
+        return BitmapFactory.decodeFile(filePath, options);
+    }
+
+    public byte[] compressBitmapToBytes(String filePath, int width, int height, int quality){
+        Bitmap bitmap = getSmallBitmap(filePath, width, height);
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.JPEG, quality, baos);
+        byte[] bytes = baos.toByteArray();
+        bitmap.recycle();
+        return bytes;
+    }
+
+    public byte[] compressBitmapSmallTo(String filePath, int width, int height, int maxLen){
+        int quality = 100;
+        byte[] bytes = compressBitmapToBytes(filePath, width, height, quality);
+        while(bytes.length > maxLen && quality > 0){
+            quality = quality / 2;
+            bytes = compressBitmapToBytes(filePath, width, height, quality);
+        }
+        return bytes;
+    }
 
     /**
      * 图像灰度化
